@@ -81,12 +81,12 @@ class Client(object):
         service = 'wise'
 
         if hasattr(self.auth, 'access_token'):
-            if not self.auth.access_token or \
-                    (hasattr(self.auth, 'access_token_expired') and self.auth.access_token_expired):
-                import httplib2
+            # if not self.auth.access_token or \
+            #        (hasattr(self.auth, 'access_token_expired') and self.auth.access_token_expired):
+            import httplib2
                 
-                http = httplib2.Http()
-                self.auth.refresh(http)
+            http = httplib2.Http()
+            self.auth.refresh(http)
                 
             self.session.add_header('Authorization', "Bearer " + self.auth.access_token)
             
