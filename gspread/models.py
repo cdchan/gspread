@@ -471,6 +471,38 @@ class Worksheet(object):
         feed = self._create_update_feed(cell_list)
         self.client.post_cells(self, ElementTree.tostring(feed))
 
+    def update_cells_fast(self, cell_list):
+        feed = Element('feed', {
+                'xmlns': ATOM_NS,
+                'xmlns:batch': BATCH_NS,
+                'xmlns:gs': SPREADSHEET_NS
+            })
+
+        id_elem = SubElement(feed, 'id')
+
+        id_elem.text = construct_url('cells', self)
+
+        for cell in cell_list:
+            entry = SubElement(feed, 'entry')
+
+            SubElement(entry, 'batch:id').text = "doesn't matter"
+            SubElement(entry, 'batch:operation', {'type': 'update'})
+            SubElement(entry, 'id').text = "https://spreadsheets.google.com/feeds/cells/key/{worksheetId}/private/full/{rc}".format(worksheetId=self._id, rc=self._cell_addr(cell['row'], cell['col']))
+
+            SubElement(entry, 'link', {
+                'rel': 'edit',
+                'type': "application/atom+xml",
+                'href': "https://spreadsheets.google.com/feeds/cells/key/{worksheetId}/private/full/{rc}".format(worksheetId=self._id, rc=self._cell_addr(cell['row'], cell['col'])),
+            })
+
+            SubElement(entry, 'gs:cell', {
+                'row': str(cell['row']),
+                'col': str(cell['col']),
+                'inputValue': unicode(cell['value'])
+            })
+
+        self.client.post_cells(self, ElementTree.tostring(feed))
+
     def resize(self, rows=None, cols=None):
         """Resizes the worksheet.
 
@@ -552,6 +584,24 @@ class Worksheet(object):
                 newcell.value = rows_after_insert[r - 1][c - 1]
                 updated_cell_list.append(newcell)
         self.update_cells(updated_cell_list)
+
+    def insert_row_fast(self, values, index=1):
+        self.add_rows(1)
+        data_width = len(values)
+        if self.col_count < data_width:
+            self.resize(cols=data_width)
+
+        all_cells = self.get_all_values()
+        rows_after_insert = all_cells[index - 1:self.row_count]
+
+        rows_after_insert.insert(0, values)
+
+        updated_cell_list = []
+        for r, row in enumerate(rows_after_insert, start=1):
+            for c, cell in enumerate(row, start=1):
+                newcell = dict(row=r + (index - 1), col=c, value=rows_after_insert[r - 1][c - 1])
+                updated_cell_list.append(newcell)
+        self.update_cells_fast(updated_cell_list)
 
     def _finder(self, func, query):
         cells = self._fetch_cells()
